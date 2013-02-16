@@ -1,0 +1,6 @@
+NOTES:
+-If only there was a better way than System.IO.File.Move to rename a file...
+
+TODO:
+-Improve show name extraction
+-Cache website data so that it doesn't have to load every time
