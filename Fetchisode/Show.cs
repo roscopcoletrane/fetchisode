@@ -5,6 +5,7 @@ using System.Text;
 using System.Net;
 using System.IO;
 using System.Text.RegularExpressions;
+using System.Xml;
 
 namespace Fetchisode
 {
@@ -14,11 +15,13 @@ namespace Fetchisode
 	public class Show
 	{
 		public List<Season> seasonList;
-		private string showName;
-		private string url;
+		public string showName;
+		public string url;
 
 		/// <summary>
 		/// Constructor
+		/// 
+		/// Used when loading from website.
 		/// 
 		/// Parses season and episode information from the html, loaded from page url.
 		/// </summary>
@@ -28,14 +31,26 @@ namespace Fetchisode
 		{
 			showName = name;
 			url = web;
+		}
 
-			Populate();
+		/// <summary>
+		/// Constructor
+		/// 
+		/// Used when loading from xml.
+		/// 
+		/// Takes in the shows xml node, gets show and url info.
+		/// </summary>
+		/// <param name="showNode">XmlNode that contains show data</param>
+		public Show(XmlNode showNode)
+		{
+			showName = showNode["Name"].InnerText.ToString();
+			url = showNode["URL"].InnerText.ToString();
 		}
 
 		/// <summary>
 		/// Downloads the html for the show page, then parses the season and episode info.
 		/// </summary>
-		private void Populate()
+		public void Populate()
 		{
 			//Connects to Internet, grabs html of page of a particular show
 			WebClient web = new WebClient();

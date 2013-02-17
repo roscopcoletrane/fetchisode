@@ -3,4 +3,4 @@ NOTES:
 
 TODO:
 -Improve show name extraction
--Cache website data so that it doesn't have to load every time
+-Actually comment the code

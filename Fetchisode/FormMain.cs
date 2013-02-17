@@ -20,10 +20,13 @@ namespace Fetchisode
 		FileInfo selectedFile;
 		List<string> showUrlList;
 		List<string> showNameList;
+		ShowGrabber grabber;
 		Show selectedShow;
 		DirectoryInfo videoFolder;
 		RegistryKey videoFolderKey;
-		
+		Loading frmLoading;
+
+		private BackgroundWorker SecondaryThread = new BackgroundWorker();
 
 		public FormMain()
 		{
@@ -32,14 +35,33 @@ namespace Fetchisode
 
 		private void FormMain_Load(object sender, EventArgs e)
 		{
-			//Populate letter combo box
 			List<string> letterList = new List<string>() { "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z" };
 			comboBoxLetter.DataSource = letterList;
 			comboBoxLetter.Text = "";
 
-			//Populate file list from text box
+			SecondaryThread.DoWork += SecondaryThread_DoWork;
+
+			if (!SecondaryThread.IsBusy)
+				SecondaryThread.RunWorkerAsync();
+
+			SecondaryThread.RunWorkerCompleted += SecondaryThread_RunWorkerCompleted;
+		}
+
+		void SecondaryThread_DoWork(object sender, DoWorkEventArgs e)
+		{
+			this.BeginInvoke((Action)delegate
+			{
+				frmLoading = new Loading();
+				frmLoading.Show();
+			});
+			grabber = new ShowGrabber();
+		}
+
+		void SecondaryThread_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
+		{
 			textBoxVideoDir.Text = ReadRegistry();
 			PopulateFileList();
+			frmLoading.Close();
 		}
 
 		private void PopulateFileList()
@@ -64,7 +86,7 @@ namespace Fetchisode
 				//Key does not exist
 				Registry.CurrentUser.CreateSubKey(videoFolderKeyPath);
 				videoFolderKey = Registry.CurrentUser.OpenSubKey(videoFolderKeyPath, true);
-				videoFolderKey.SetValue("Video Folder Path", @"H:\TV\ZZZzzz");
+				videoFolderKey.SetValue("Video Folder Path", @"C:\");
 			}
 			
 			videoFolderPath = videoFolderKey.GetValue("Video Folder Path").ToString();
@@ -76,12 +98,9 @@ namespace Fetchisode
 		{
 			selectedFile = new FileInfo(textBoxVideoDir.Text + "\\" + listBoxFileList.SelectedItem.ToString());
 
-			//Extrapolate first letter
-
-			//If file starts with 'The'
 			if (selectedFile.Name.StartsWith("The"))
 			{
-				//...assuming the name starts with "The." or "The "...
+				//...assuming the name starts with "The." or "The " (specifically one character after it)
 				comboBoxLetter.Text = selectedFile.Name[4].ToString().ToUpper();
 			}
 			else
@@ -89,38 +108,21 @@ namespace Fetchisode
 				comboBoxLetter.Text = selectedFile.Name[0].ToString().ToUpper();
 			}
 
-			//Populate show list (call comboBoxLetter_SelectedIndexChanged)
-			//PopulateShows(comboBoxLetter.Text);
-
-			//Cleanup
-			//listBoxEpisode.DataSource = null;
+			PopulateShows(comboBoxLetter.Text);
 		}
 
 
 		private void PopulateShows(string letter)
 		{
-			//Connects to Internet, grabs html of page of a particular letter
-			WebClient web = new WebClient();
-			string html = web.DownloadString(@"http://www.epguides.com/menu" + letter + @"/");
-
-			//Turns html into a list of strings, the better to parse
-			List<string> htmlList = new List<string>();
-			htmlList = html.Split('\n').ToList();
+			List<Show> showList = grabber.GetShowList(letter);
 
 			showUrlList = new List<string>();
 			showNameList = new List<string>();
 
-			Match regexMatch;
-			foreach (string line in htmlList)
+			foreach (Show showItem in showList)
 			{
-				//<li><b><a href="../AforAndromeda/">A for Andromeda</a></b></li>
-				regexMatch = Regex.Match(line, @"<li><b><a href=""../(?<url>.+)/"">(?<name>.+)</a></b>.*</li>");
-
-				if (regexMatch.Success)
-				{
-					showUrlList.Add(regexMatch.Groups["url"].Value);
-					showNameList.Add(regexMatch.Groups["name"].Value);
-				}
+				showUrlList.Add(showItem.url);
+				showNameList.Add(showItem.showName);
 			}
 
 			comboBoxShow.DataSource = showNameList;
@@ -177,17 +179,13 @@ namespace Fetchisode
 			return newFileName;
 		}
 
-
-		private void buttonLoadShowList_Click(object sender, EventArgs e)
-		{
-			PopulateShows(comboBoxLetter.SelectedItem.ToString());
-			listBoxEpisode.DataSource = null;
-		}
-
 		private void buttonLoadSeasonList_Click(object sender, EventArgs e)
 		{
 			//Create Show object
 			selectedShow = new Show(showNameList[comboBoxShow.SelectedIndex].ToString(), showUrlList[comboBoxShow.SelectedIndex].ToString());
+
+			if (selectedShow.seasonList == null)
+				selectedShow.Populate();
 
 			//Populate Season List
 			listBoxSeason.Items.Clear();
@@ -212,6 +210,11 @@ namespace Fetchisode
 		private void FormMain_FormClosing(object sender, FormClosingEventArgs e)
 		{
 			videoFolderKey.SetValue("Video Folder Path", textBoxVideoDir.Text);
+		}
+
+		private void button1_Click(object sender, EventArgs e)
+		{
+			grabber = new ShowGrabber();
 		}
 	}
 }

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Xml;
 
 namespace Fetchisode
 {
@@ -16,6 +17,8 @@ namespace Fetchisode
 		/// <summary>
 		/// Constructor
 		/// 
+		/// Used when loading from website.
+		/// 
 		/// Creates a list to contain episode information for a specific season.
 		/// </summary>
 		/// <param name="num">Season number</param>
@@ -23,6 +26,25 @@ namespace Fetchisode
 		{
 			number = num;
 			epNameList = new List<string>();
+		}
+
+		/// <summary>
+		/// Constructor
+		/// 
+		/// Used when loading from xml file.
+		/// 
+		/// Parses xml node to get season number and episode titles
+		/// </summary>
+		/// <param name="seasonNode">XmlNode that contains season data</param>
+		public Season(XmlNode seasonNode)
+		{
+			number = seasonNode.Attributes["number"].ToString();
+			epNameList = new List<string>();
+
+			foreach (XmlNode epNode in seasonNode.ChildNodes)
+			{
+				epNameList.Add(epNode.InnerText.ToString());
+			}
 		}
 
 		/// <summary>
