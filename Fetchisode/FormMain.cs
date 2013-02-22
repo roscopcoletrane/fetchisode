@@ -17,16 +17,31 @@ namespace Fetchisode
 {
 	public partial class FormMain : Form
 	{
-		FileInfo selectedFile;
-		List<string> showUrlList;
-		List<string> showNameList;
-		ShowGrabber grabber;
-		Show selectedShow;
+		#region Globals
+
+		//Selected folder that houses the files to be renamed.
 		DirectoryInfo videoFolder;
+		//Location of the registry key that saves the last selected videoFolder.
 		RegistryKey videoFolderKey;
+
+		//Form that displays on top while show data is being initially downloaded.
 		Loading frmLoading;
 
+		//File being worked on.
+		FileInfo selectedFile;
+
+		//Handles all the downloading of the lists of shows, either from the web or xml file.
+		ShowGrabber grabber;
+
+		//Once a show is selected from the combobox, this is used for accessing the selected
+		//	show's episode info.
+		Show selectedShow;
+
+		//Where the ShowGrabber does its business, as not to lock up the interface.
 		private BackgroundWorker SecondaryThread = new BackgroundWorker();
+
+		#endregion
+
 
 		public FormMain()
 		{
@@ -39,11 +54,10 @@ namespace Fetchisode
 			comboBoxLetter.DataSource = letterList;
 			comboBoxLetter.Text = "";
 
+			//Start the data collection.
 			SecondaryThread.DoWork += SecondaryThread_DoWork;
-
 			if (!SecondaryThread.IsBusy)
 				SecondaryThread.RunWorkerAsync();
-
 			SecondaryThread.RunWorkerCompleted += SecondaryThread_RunWorkerCompleted;
 		}
 
@@ -59,9 +73,20 @@ namespace Fetchisode
 
 		void SecondaryThread_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
 		{
-			textBoxVideoDir.Text = ReadRegistry();
+			textBoxVideoDir.Text = GetVideoFolderPath();
 			PopulateFileList();
 			frmLoading.Close();
+		}
+
+
+
+		private void buttonLoadDir_Click(object sender, EventArgs e)
+		{
+			if (LoadFolderBrowser.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+			{
+				textBoxVideoDir.Text = LoadFolderBrowser.SelectedPath;
+				PopulateFileList();
+			}
 		}
 
 		private void PopulateFileList()
@@ -71,7 +96,7 @@ namespace Fetchisode
 				listBoxFileList.DataSource = videoFolder.GetFiles();
 		}
 
-		private string ReadRegistry()
+		private string GetVideoFolderPath()
 		{
 			string videoFolderPath = null;
 			string videoFolderKeyPath = @"SOFTWARE\Rosco\FetchisodeCopy";
@@ -83,7 +108,7 @@ namespace Fetchisode
 			}
 			catch (Exception)
 			{
-				//Key does not exist
+				//Key does not exist, I wish there was a better way to handle that.
 				Registry.CurrentUser.CreateSubKey(videoFolderKeyPath);
 				videoFolderKey = Registry.CurrentUser.OpenSubKey(videoFolderKeyPath, true);
 				videoFolderKey.SetValue("Video Folder Path", @"C:\");
@@ -93,6 +118,8 @@ namespace Fetchisode
 
 			return videoFolderPath;
 		}
+
+
 
 		private void listBoxFileList_SelectedIndexChanged(object sender, EventArgs e)
 		{
@@ -107,25 +134,31 @@ namespace Fetchisode
 			{
 				comboBoxLetter.Text = selectedFile.Name[0].ToString().ToUpper();
 			}
-
-			PopulateShows(comboBoxLetter.Text);
 		}
 
-
-		private void PopulateShows(string letter)
+		private void comboBoxLetter_SelectedIndexChanged(object sender, EventArgs e)
 		{
-			List<Show> showList = grabber.GetShowList(letter);
+			if (grabber != null)
+				comboBoxShow.DataSource = grabber.GetShowList(comboBoxLetter.Text);
+		}
 
-			showUrlList = new List<string>();
-			showNameList = new List<string>();
+		private void buttonLoadSeasonList_Click(object sender, EventArgs e)
+		{
+			//Create Show object
+			selectedShow = grabber.GetShowList(comboBoxLetter.Text)[comboBoxShow.SelectedIndex];
 
-			foreach (Show showItem in showList)
+			if (selectedShow.seasonList == null)
+				selectedShow.Populate();
+
+			//Populate Season List
+			listBoxSeason.Items.Clear();
+			foreach (Season s in selectedShow.seasonList)
 			{
-				showUrlList.Add(showItem.url);
-				showNameList.Add(showItem.showName);
+				listBoxSeason.Items.Add("Season " + s.number);
 			}
 
-			comboBoxShow.DataSource = showNameList;
+			//Cleanup
+			listBoxEpisode.DataSource = null;
 		}
 
 		private void listBoxSeason_SelectedIndexChanged(object sender, EventArgs e)
@@ -137,6 +170,7 @@ namespace Fetchisode
 			listBoxEpisode.DataSource = selectedShow.seasonList[listBoxSeason.SelectedIndex].GetEpNameList();
 			//listBoxEpisode.Refresh();
 		}
+
 
 
 		private void listBoxEpisode_DoubleClick(object sender, EventArgs e)
@@ -179,42 +213,11 @@ namespace Fetchisode
 			return newFileName;
 		}
 
-		private void buttonLoadSeasonList_Click(object sender, EventArgs e)
-		{
-			//Create Show object
-			selectedShow = new Show(showNameList[comboBoxShow.SelectedIndex].ToString(), showUrlList[comboBoxShow.SelectedIndex].ToString());
 
-			if (selectedShow.seasonList == null)
-				selectedShow.Populate();
-
-			//Populate Season List
-			listBoxSeason.Items.Clear();
-			foreach (Season s in selectedShow.seasonList)
-			{
-				listBoxSeason.Items.Add("Season " + s.number);
-			}
-
-			//Cleanup
-			listBoxEpisode.DataSource = null;
-		}
-
-		private void buttonLoadDir_Click(object sender, EventArgs e)
-		{
-			if (LoadFolderBrowser.ShowDialog() == System.Windows.Forms.DialogResult.OK)
-			{
-				textBoxVideoDir.Text = LoadFolderBrowser.SelectedPath;
-				PopulateFileList();
-			}
-		}
 
 		private void FormMain_FormClosing(object sender, FormClosingEventArgs e)
 		{
 			videoFolderKey.SetValue("Video Folder Path", textBoxVideoDir.Text);
-		}
-
-		private void button1_Click(object sender, EventArgs e)
-		{
-			grabber = new ShowGrabber();
 		}
 	}
 }
