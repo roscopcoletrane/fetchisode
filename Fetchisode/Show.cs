@@ -97,10 +97,5 @@ namespace Fetchisode
 				}
 			}
 		}
-
-		public override string ToString()
-		{
-			return showName;
-		}
 	}
 }

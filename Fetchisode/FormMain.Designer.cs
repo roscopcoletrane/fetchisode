@@ -74,7 +74,6 @@
 			this.comboBoxLetter.Name = "comboBoxLetter";
 			this.comboBoxLetter.Size = new System.Drawing.Size(37, 21);
 			this.comboBoxLetter.TabIndex = 3;
-			this.comboBoxLetter.SelectedIndexChanged += new System.EventHandler(this.comboBoxLetter_SelectedIndexChanged);
 			// 
 			// comboBoxShow
 			// 
